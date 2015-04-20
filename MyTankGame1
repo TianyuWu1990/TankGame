@@ -1,0 +1,558 @@
+package com.MyTankGame1;
+import java.awt.*;
+import java.io.*;
+import java.awt.event.*;
+import java.util.Vector;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+
+import java.util.*;
+public class MyTankGame1 extends JFrame implements ActionListener{
+	
+	MyPanel mp=null;           //Declare START panel
+	MyStartPanel msp=null;  //Menu Needed
+	JMenuBar jmb = null;     // Game bar
+	JMenu jm1 = null;           //Start Game Menu
+	JMenuItem jmi1 = null;  //Start New Game
+	JMenuItem jmi2 = null;   //Quit Game(No Recording)
+    JMenuItem jmi3 = null;   //Quit and Save(Save records)
+	JMenuItem jmi4 = null;   //Resume the Last Game(Read records)
+	public static void main(String[] args)  {
+		// TODO Auto-generated method stub
+
+		MyTankGame1 mtg=new MyTankGame1();
+		
+		
+		
+	}
+
+	//Constructor
+	public MyTankGame1()
+	{
+		
+		//Creat Menu and Options
+		jmb = new JMenuBar();
+		jm1 = new JMenu("Game");
+		jm1.setMnemonic('G');
+		jmi1 = new JMenuItem("Start New Game");
+		jmi1.addActionListener(this);
+		jmi1.setActionCommand("newgame");
+		jmi2 = new JMenuItem("Quit");
+		jmi2.addActionListener(this);
+		jmi2.setActionCommand("exit");
+		jmi3 = new JMenuItem("Save&Quit");
+		jmi3.addActionListener(this);
+		jmi3.setActionCommand("saveExit");
+		jmi4 = new JMenuItem("Resume");
+		jmi4.addActionListener(this);
+		jmi4.setActionCommand("conGame");
+		
+		
+		jm1.add(jmi1);
+		jmb.add(jm1);
+		jm1.add(jmi2);
+		jm1.add(jmi3);
+		jm1.add(jmi4);
+		//Call Start Menu
+		msp=new MyStartPanel();
+		Thread t =new Thread(msp);
+		t.start();
+		//Load Selective options
+		this.setJMenuBar(jmb);
+		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
+		this.add(msp);
+		this.setSize(430,330);
+		this.setVisible(true);
+		this.setBounds(200, 200,600, 500);
+		
+	}
+
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		// TODO Auto-generated method stub
+		//Manage user's Key Processing
+		if(e.getActionCommand().equals("newgame"))
+		{
+			mp = new MyPanel("newGame");
+			//Start (mp) Thread
+			Thread t=new Thread(mp);
+			t.start();
+			//Delete old panel (first)
+			this.remove(msp);
+			this.add(mp);
+			//Sign up Listener
+			this.addKeyListener(mp);
+			//Display(refresh panel)
+			this.setVisible(true);
+		}
+		else if(e.getActionCommand().equals("exit"))
+		{
+			//Keep records of Dead Enemies
+			Recorder.KeepRecording();
+			System.exit(0);
+		}
+		else if(e.getActionCommand().equals("saveExit"))
+		{
+			Recorder rd=new Recorder();
+			rd.setEts(mp.ets);
+			//Keep Records
+			rd.keepRecAndEnemyTank();
+			System.exit(0);
+		}
+		else if(e.getActionCommand().equals("conGame"))
+		{
+			mp = new MyPanel("conGame");
+			
+			//Sign up Thread
+			Thread t=new Thread(mp);
+			t.start();
+			this.remove(msp);
+			this.add(mp);
+			this.addKeyListener(mp);
+			this.setVisible(true);
+		}
+	}
+}
+
+
+class MyStartPanel extends JPanel implements Runnable
+{
+	
+	int times = 0;
+	public void paint(Graphics g)
+	{
+		super.paint(g);
+	    g.fillRect(0, 0, 430, 330);
+	    //Words Display
+	    if(times%2==0)
+	    {
+	    g.setColor(Color.yellow);
+	    Font myFont=new Font("Time New Roman",Font.BOLD,30);
+	    g.setFont(myFont);
+	    g.drawString("Stage: 1", 150, 100);
+	    }
+	    
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		while(true)
+		{
+			//100ms delay
+			try {
+				Thread.sleep(100);
+			} catch (Exception e) {
+				// TODO: handle exception
+			}
+			
+			times++;
+			this.repaint();
+		}
+	}
+}
+
+
+class MyPanel extends JPanel implements KeyListener,Runnable
+{
+	//Defining a MyTank
+	Hero hero=null;
+	//Define EnemyTank Group
+	Vector<EnemyTank> ets=new Vector<EnemyTank>();
+	//Define Location Records
+	Vector<Node> nodes=new Vector<Node>();
+	//Define Bombs Group
+	Vector<Bomb> bombs=new Vector<Bomb>(); 
+	
+	int enSize=5;
+	
+	//One bomb includes three images
+	Image image1=null;
+	Image image2=null;
+	Image image3=null;
+	
+	//Constructor
+	public MyPanel(String flag)
+	{
+		//Restore Recording
+		Recorder.getRecording();
+		//MyTank Location
+		hero=new Hero(100, 100);
+		
+		if(flag.equals("newGame"))
+		{
+		//Initialized EnemyTank
+		for(int i=0;i<enSize;i++)
+		{
+			//Creat EnemyTank object
+			EnemyTank et=new EnemyTank((i+1)*50,0);
+			et.setColor(0);
+			et.setDirect(2);
+			//Set Vector
+			et.setEts(ets);
+			
+			//Start (EnemyTank) Thread
+			Thread t=new Thread(et);
+			t.start();
+			//Set shot to EnemyTank
+			Shot s=new Shot(et.x+10,et.y+30,2);
+			et.ss.add(s);
+			Thread t2=new Thread(s);
+			t2.start();
+			ets.add(et);
+			
+			
+		}
+		}else{
+			
+			nodes=new Recorder().getNodesAndEnNums();
+			for(int i=0;i<nodes.size();i++)
+			{
+				Node node=nodes.get(i);
+				EnemyTank et=new EnemyTank(node.x,node.y);
+				et.setColor(0);
+				et.setDirect(node.direct);
+				et.setEts(ets);
+				
+				Thread t=new Thread(et);
+				t.start();
+				Shot s=new Shot(et.x+10,et.y+30,2);
+				et.ss.add(s);
+				Thread t2=new Thread(s);
+				t2.start();
+				ets.add(et);
+				
+				
+			}
+		}
+	//Load Music Files
+		AePlayWave apw=new AePlayWave("C:/TankGame/111.wav");
+		apw.start();
+		//Load image files
+		image1=Toolkit.getDefaultToolkit().getImage(Panel.class.getResource("/bomb_1.gif"));
+	    image2=Toolkit.getDefaultToolkit().getImage(Panel.class.getResource("/bomb_2.gif"));
+      	image3=Toolkit.getDefaultToolkit().getImage(Panel.class.getResource("/bomb_3.gif"));
+
+
+		
+	}
+	
+	
+	public void showInfo(Graphics g)
+	{
+		//Draw hint info
+				this.drawTank(75, 350, g, 0, 0);
+				g.setColor(Color.black);
+				g.drawString("Enemy"+"  "+Recorder.getEnNum(), 10, 370);
+				
+				this.drawTank(75, 390, g, 0, 1);
+				g.setColor(Color.black);
+				g.drawString("Life"+"         "+Recorder.getMyLife(), 10, 410);
+				
+				//Display Player's Records
+				g.setColor(Color.black);
+				Font f=new Font("Time New Roman",Font.BOLD,20);
+				g.setFont(f);
+				g.drawString("Record",440,20);
+				this.drawTank(470, 40, g, 0, 0);
+				
+				g.setColor(Color.BLACK);
+				g.drawString(Recorder.getAllEnNum()+"", 510, 60);
+				
+	}
+	
+	//Rewrite (paint) function
+	public void paint(Graphics g)
+	{
+		super.paint(g);
+		g.fillRect(0, 0,430,330);
+		//Draw Info
+		this.showInfo(g);
+		//Draw MyTank
+		if(hero.isLive)
+		{
+		this.drawTank(hero.getX(), hero.getY(), g, this.hero.direct, 1);
+		//Get shots from(ss)
+		}
+	
+		for(int i=0;i<hero.ss.size();i++)
+		{
+		Shot myShot=hero.ss.get(i);
+		//Draw shot
+		if(myShot!=null&&myShot.isLive==true)
+		{
+			g.draw3DRect(myShot.x, myShot.y, 1, 1, false);
+		}
+		if(myShot.isLive==false)
+		{
+			//Recalculate shots num when hit edge
+			hero.ss.remove(myShot);
+		}
+		}
+		
+		//Draw Bomb
+		for(int i=0;i<bombs.size();i++)
+		{
+			//Get bomb
+			Bomb b=bombs.get(i);
+		
+			if(b.life>6)
+			{
+	
+				g.drawImage(image1, b.x, b.y, 30,30,this);
+			}
+			else if(b.life>3)
+			{
+				
+				g.drawImage(image2, b.x, b.y, 30,30,this);
+			}else{
+			
+				g.drawImage(image3, b.x, b.y, 30,30,this);
+			}
+			
+			//Control Bomb Image disappears gradually
+			b.lifeDown();
+			
+			if(b.life==0)
+			{
+				bombs.remove(b);
+			}
+		}
+	//Draw EnemyTank
+		for(int i=0;i<ets.size();i++)
+		{
+			EnemyTank et=ets.get(i);
+			if(et.isLive)
+			{
+			this.drawTank(et.getX(),et.getY(), g, et.getDirect(),0);
+			//Set shot to EnemyTank
+			for(int j=0;j<et.ss.size();j++)
+			{
+				//Get shots from (ss)
+				Shot enemyShot=et.ss.get(j);
+				if(enemyShot.isLive)
+				{
+					g.draw3DRect(enemyShot.x, enemyShot.y, 1, 1, false);
+					
+				}else{
+					//Remove EnemyTank from Vector when one of them is dead
+					et.ss.remove(enemyShot);
+				}
+			}
+		     }
+		}
+		
+		
+	}
+		//Judge MyTank is alive or not
+	public void hitMe()
+	{
+		//Get each EnemyTank
+		for(int i=0;i<this.ets.size();i++)
+		{
+			EnemyTank et=ets.get(i);
+			
+			//Get each shots
+			for(int j=0;j<et.ss.size();j++)
+			{
+				Shot enemyShot=et.ss.get(j);
+				if(hero.isLive){
+				if(this.hitTank(enemyShot, hero))
+				{
+					
+				}
+				}
+			}
+		}
+	}
+	
+	//Judge if EnemyTank is alive or not
+	public void hitEnemyTank()
+	{
+		//Judge hit
+		for(int i=0;i<hero.ss.size();i++)
+		{
+			//Get shots
+			Shot myShot=hero.ss.get(i);
+			//Judge hit
+			if(myShot.isLive)
+			{
+				//Get each EnemyTank for judge
+				for(int j=0;j<ets.size();j++)
+				{
+					EnemyTank et=ets.get(j);
+					
+					if(et.isLive)
+					{
+						if(this.hitTank(myShot,et))
+						{
+							//Decrease EnemyTank num
+							Recorder.reduceEnNum();
+							//Increase Player's Record
+							Recorder.addEnNumRec();
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	public boolean hitTank(Shot s, Tank et)
+	{
+		boolean bb=false;
+		//Get EnemyTank Direction
+		switch(et.direct)
+		{
+		case 0:
+		case 2:
+			if(s.x>et.x&&s.x<et.x+20&&s.y>et.y&&s.y<et.y+30)
+			{
+				//Hit
+				//Shot dead,ET dead
+				s.isLive=false;
+				et.isLive=false;
+				bb=true;
+				
+				//Create Bomb
+				Bomb b=new Bomb(et.x, et.y);
+				//put into Vector
+				bombs.add(b);
+			}
+			break;
+		case 1:
+		case 3:
+			if(s.x>et.x&&s.x<et.x+30&&s.y>et.y&&s.y<et.y+20)
+			{
+				//Hit
+				s.isLive=false;
+				et.isLive=false;
+				bb=true;
+				
+				Bomb b=new Bomb(et.x, et.y);
+				bombs.add(b);
+			}
+			break;
+		}
+		return bb;
+	}
+	public void drawTank(int x, int y, Graphics g, int direct, int type)
+	{
+		switch(type)
+		{
+		case 0:
+			g.setColor(Color.cyan);
+			break;
+		case 1:
+			g.setColor(Color.yellow);
+			break;
+			
+		}
+		
+		//Direction Judgment
+		switch(direct)
+		{
+		case 0:
+			//Up
+		
+			g.fill3DRect(x, y, 5, 30,false);
+			g.fill3DRect(x+15, y, 5, 30,false);
+			g.fill3DRect(x+5, y+5,10, 20,false);
+			g.fillOval(x+5, y+10,10, 10);
+			g.drawLine(x+10, y+15, x+10, y);
+			break;
+		case 1:
+			//Right
+			g.fill3DRect(x, y, 30, 5,false);
+			g.fill3DRect(x, y+15, 30, 5,false);
+			g.fill3DRect(x+5, y+5,20, 10,false);
+			g.fillOval(x+10, y+5,10, 10);
+			g.drawLine(x+15, y+10, x+30, y+10);
+			break;
+		case 2:
+			//Down
+			g.fill3DRect(x, y, 5, 30,false);
+			g.fill3DRect(x+15, y, 5, 30,false);
+			g.fill3DRect(x+5, y+5,10, 20,false);
+			g.fillOval(x+5, y+10,10, 10);
+			g.drawLine(x+10, y+15, x+10, y+30);
+			break;
+		case 3:
+			//Left
+			g.fill3DRect(x, y, 30, 5,false);
+			g.fill3DRect(x, y+15, 30, 5,false);
+			g.fill3DRect(x+5, y+5,20, 10,false);
+			g.fillOval(x+10, y+5,10, 10);
+			g.drawLine(x+15, y+10, x, y+10);
+			break;
+		}
+	}
+
+	@Override
+	// a s w d
+	public void keyPressed(KeyEvent e) {
+		// TODO Auto-generated method stub
+		if (e.getKeyCode()==KeyEvent.VK_W)
+		{
+			//Set MyTank Direction
+			this.hero.setDirect(0);
+			this.hero.moveUp();
+		}else if(e.getKeyCode()==KeyEvent.VK_D)
+		{
+			this.hero.setDirect(1);
+			this.hero.moveRight();
+		}else if(e.getKeyCode()==KeyEvent.VK_S)
+		{
+			this.hero.setDirect(2);
+			this.hero.moveDown();
+		}else if(e.getKeyCode()==KeyEvent.VK_A)
+		{
+			this.hero.setDirect(3);
+			this.hero.moveLeft();
+		}
+		//Key J for Shot
+		 if(e.getKeyCode()==KeyEvent.VK_J)
+			{
+				//Shot from MyTank
+			if(this.hero.ss.size()<=4)
+			{
+			 this.hero.shotEnemy();
+			}
+			}
+		this.repaint();
+		
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		while(true)
+		{
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		this.hitEnemyTank();
+		this.hitMe();
+		this.repaint();
+		}
+	}
+}
+
+
+
